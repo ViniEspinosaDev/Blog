@@ -1,59 +1,54 @@
 using System.Collections.Generic;
-using Blog.Interface;
+using System.Linq;
 using Blog.Models;
-using Dapper.Contrib.Extensions;
+using Dapper;
 using Microsoft.Data.SqlClient;
 
 namespace Blog.Repository
 {
-    public class UserRepository : BaseRepository, IUserRepository
+    public class UserRepository : BaseRepository<User>
     {
         public UserRepository(SqlConnection connection) : base(connection) { }
 
-        public int Create(User user)
+        public IEnumerable<User> GetWithRoles()
         {
-            user.Id = 0;
+            string query = @" 
+                                SELECT 
+                                    [User].*,
+                                    [Role].*
+                                FROM
+                                    [User]
+                                    LEFT JOIN [UserRole] ON [UserRole].[UserId] = [User].[Id]
+                                    LEFT JOIN [Role] ON [UserRole].[RoleId] = [Role].[Id] 
+                                ";
+
+            var users = new List<User>();
 
             using (var connection = new SqlConnection(CONNECTION_STRING))
             {
-                long id = connection.Insert<User>(user);
+                var items = connection.Query<User, Role, User>
+                (
+                    query,
+                    (user, role) =>
+                    {
+                        var usr = users.FirstOrDefault(x => x.Id == user.Id);
 
-                return (int)id;
+                        if (usr == null)
+                        {
+                            usr = user;
+                            if (role != null)
+                                usr.Roles.Add(role);
+                            users.Add(usr);
+                        }
+                        else
+                        if (role != null)
+                            usr.Roles.Add(role);
+
+                        return user;
+                    }, splitOn: "Id");
             }
-        }
 
-        public bool Delete(int id)
-        {
-            var user = Get(id);
-
-            using (var connection = new SqlConnection(CONNECTION_STRING))
-            {
-                return connection.Delete<User>(user);
-            }
-        }
-
-        public User Get(int id)
-        {
-            using (var connection = new SqlConnection(CONNECTION_STRING))
-            {
-                return connection.Get<User>(id);
-            }
-        }
-
-        public IEnumerable<User> GetAll()
-        {
-            using (var connection = new SqlConnection(CONNECTION_STRING))
-            {
-                return connection.GetAll<User>();
-            }
-        }
-
-        public bool Update(User user)
-        {
-            using (var connection = new SqlConnection(CONNECTION_STRING))
-            {
-                return connection.Update<User>(user);
-            }
+            return users;
         }
     }
 }
