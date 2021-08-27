@@ -19,5 +19,18 @@ namespace Blog.Models
 
         [Write(false)] // Para não escrever na inserção
         public List<Role> Roles { get; set; }
+
+        public override string ToString()
+        {
+            return $@"
+                    ------- || -------
+                    USUÁRIO: {Id}
+                    - Nome: {Name}
+                    - Email: {Email}
+                    - Bio: {Bio}
+                    - Qtd Roles: {Roles.Count}
+                    ------- || -------
+                    ";
+        }
     }
 }
